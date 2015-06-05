@@ -24,7 +24,8 @@ public class EnhancerFinder {
 		String[] fm_train_dna = Load.load_dna("data/H1_ATAC_training_sequences.txt");
 		String[] fm_test_dna = Load.load_dna("data/H1_ATAC_test_sequences.txt");
 		DoubleMatrix trainlab = Load.load_labels("data/H1_ATAC_training_labels.txt");
-
+		
+		
 		StringCharFeatures charfeat = new StringCharFeatures(DNA);
 		charfeat.set_features(fm_train_dna);
 		StringWordFeatures feats_train = new StringWordFeatures(charfeat.get_alphabet());
@@ -41,22 +42,54 @@ public class EnhancerFinder {
 		feats_test.add_preprocessor(preproc);
 		feats_test.apply_preprocessor();
 
-		CommWordStringKernel kernel = new CommWordStringKernel(feats_train, feats_train, use_sign);
-
-		//DoubleMatrix km_train = kernel.get_kernel_matrix();
-		//kernel.init(feats_train, feats_test);
-		//DoubleMatrix km_test = kernel.get_kernel_matrix();
-		BinaryLabels labels = new BinaryLabels(trainlab);
-		SVMLight svm = new SVMLight(C, kernel, labels);
-		svm.set_epsilon(epsilon);
-		//svm.parallel.set_num_threads(num_threads);
-		svm.train();
-
+		CommWordStringKernel stringkernel = new CommWordStringKernel(feats_train, feats_train, use_sign);
 		
-		BinaryLabels test_labels = to_binary(svm.apply(feats_test));
+		DoubleMatrix traindata_real = Load.load_numbers("data/H1_ATAC_training_numeric_scores.txt");
+		DoubleMatrix testdata_real = Load.load_numbers("data/H1_ATAC_test_numeric_scores.txt");
+		
+		RealFeatures train_features_numeric = new RealFeatures(traindata_real);
+		RealFeatures test_features_numeric = new RealFeatures(testdata_real);
+		
+		NormOne normone_preproc = new NormOne();
+		normone_preproc.init(train_features_numeric);
+		train_features_numeric.add_preprocessor(normone_preproc);
+		train_features_numeric.apply_preprocessor();
+		test_features_numeric.add_preprocessor(normone_preproc);
+		test_features_numeric.apply_preprocessor();
+		System.out.println("features set");
+		
+		GaussianKernel gaussianKernel = new GaussianKernel();
+		gaussianKernel.init(train_features_numeric, train_features_numeric);
+		
+		CombinedFeatures combined_features_train = new CombinedFeatures();
+		combined_features_train.append_feature_obj(feats_train);
+		combined_features_train.append_feature_obj(train_features_numeric);
+		
+		CombinedFeatures combined_features_test = new CombinedFeatures();
+		combined_features_test.append_feature_obj(feats_test);
+		combined_features_test.append_feature_obj(test_features_numeric);
+		System.out.println("features combined");
+		
+		CombinedKernel kernel = new CombinedKernel();
+		kernel.append_kernel(stringkernel);
+		kernel.append_kernel(gaussianKernel);
+		kernel.init(combined_features_train, combined_features_train);
+
+		System.out.println("kernels combined");
+		
+		BinaryLabels labels = new BinaryLabels(trainlab);
+		MKLClassification mkl = new MKLClassification();
+		mkl.set_mkl_norm(1);
+		mkl.set_kernel(kernel);
+	    mkl.set_labels(labels);
+
+	    mkl.train();
+		System.out.println("mkl trained");
+		
+		BinaryLabels test_labels = to_binary(mkl.apply(combined_features_test));
 		System.out.println("svm applied to test data");
 
-        //System.out.println(test_labels.get_labels().toString());
+       
 		FileWriter fw_scores = new FileWriter("scores.txt");
 		fw_scores.write(test_labels.get_values().toString());
 		fw_scores.close();
