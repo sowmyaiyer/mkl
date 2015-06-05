@@ -15,9 +15,9 @@ public class mkl_binclass_modular {
 		double C = 1.0;
 		int mkl_norm = 2;
 
-		DoubleMatrix traindata_real_all = Load.load_numbers("../data/magic_train.1000.txt");
-		DoubleMatrix testdata_real_all = Load.load_numbers("../data/magic_test.1000.txt");
-		DoubleMatrix trainlab = Load.load_labels("../data/magic_train_labels.1000.txt");
+		DoubleMatrix traindata_real_all = Load.load_numbers("data/magic_train.1000.txt");
+		DoubleMatrix testdata_real_all = Load.load_numbers("data/magic_test.1000.txt");
+		DoubleMatrix trainlab = Load.load_labels("data/magic_train_labels.1000.txt");
 		
 		System.out.println(traindata_real_all.getRows());
 		
